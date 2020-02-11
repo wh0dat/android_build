@@ -1050,7 +1050,7 @@ def GetKeyPasswords(keylist):
 def GetMinSdkVersion(apk_name):
   """Gets the minSdkVersion declared in the APK.
 
-  It calls 'aapt2' to query the embedded minSdkVersion from the given APK file.
+  It calls 'aapt' to query the embedded minSdkVersion from the given APK file.
   This can be both a decimal number (API Level) or a codename.
 
   Args:
@@ -1063,12 +1063,12 @@ def GetMinSdkVersion(apk_name):
     ExternalError: On failing to obtain the min SDK version.
   """
   proc = Run(
-      ["aapt2", "dump", "badging", apk_name], stdout=subprocess.PIPE,
+      ["aapt", "dump", "badging", apk_name], stdout=subprocess.PIPE,
       stderr=subprocess.PIPE)
   stdoutdata, stderrdata = proc.communicate()
   if proc.returncode != 0:
     raise ExternalError(
-        "Failed to obtain minSdkVersion: aapt2 return code {}:\n{}\n{}".format(
+        "Failed to obtain minSdkVersion: aapt return code {}:\n{}\n{}".format(
             proc.returncode, stdoutdata, stderrdata))
 
   for line in stdoutdata.split("\n"):
@@ -1076,7 +1076,7 @@ def GetMinSdkVersion(apk_name):
     m = re.match(r'sdkVersion:\'([^\']*)\'', line)
     if m:
       return m.group(1)
-  raise ExternalError("No minSdkVersion returned by aapt2")
+  raise ExternalError("No minSdkVersion returned by aapt")
 
 
 def GetMinSdkVersionInt(apk_name, codename_to_api_level_map):
@@ -1424,7 +1424,7 @@ class PasswordManager(object):
   def __init__(self):
     self.editor = os.getenv("EDITOR")
     self.pwfile = os.getenv("ANDROID_PW_FILE")
-    self.secure_storage_cmd = os.getenv("ANDROID_SECURE_STORAGE_CMD", None)
+    self.secure_storage_cmd = os.getenv("ANDROID_SECURE_STORAGE_CMD")
 
   def GetPasswords(self, items):
     """Get passwords corresponding to each string in 'items',
@@ -2148,7 +2148,7 @@ class BlockDifference(object):
     #   decompression_time: 15s  | 25s                | 25s
 
     if not self.src:
-      brotli_cmd = ['brotli', '--quality=3',
+      brotli_cmd = ['brotli', '--quality=6',
                     '--output={}.new.dat.br'.format(self.path),
                     '{}.new.dat'.format(self.path)]
       print("Compressing {}.new.dat with brotli".format(self.partition))
@@ -2208,7 +2208,10 @@ PARTITION_TYPES = {
     "ext4": "EMMC",
     "emmc": "EMMC",
     "f2fs": "EMMC",
-    "squashfs": "EMMC"
+    "squashfs": "EMMC",
+    "ext2": "EMMC",
+    "ext3": "EMMC",
+    "vfat": "EMMC"
 }
 
 
@@ -2302,7 +2305,6 @@ def MakeRecoveryPatch(input_dir, output_sink, recovery_img, boot_img,
     info_dict = OPTIONS.info_dict
 
   full_recovery_image = info_dict.get("full_recovery_image") == "true"
-  use_bsdiff = info_dict.get("no_gzip_recovery_ramdisk") == "true"
 
   if full_recovery_image:
     output_sink("etc/recovery.img", recovery_img.data)
@@ -2313,7 +2315,7 @@ def MakeRecoveryPatch(input_dir, output_sink, recovery_img, boot_img,
     # With system-root-image, boot and recovery images will have mismatching
     # entries (only recovery has the ramdisk entry) (Bug: 72731506). Use bsdiff
     # to handle such a case.
-    if system_root_image or use_bsdiff:
+    if system_root_image:
       diff_program = ["bsdiff"]
       bonus_args = ""
       assert not os.path.exists(path)

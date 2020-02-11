@@ -226,9 +226,9 @@ TARGET_CPU_ABI_LIST := $(subst $(space),$(comma),$(strip $(TARGET_CPU_ABI_LIST))
 TARGET_CPU_ABI_LIST_32_BIT := $(subst $(space),$(comma),$(strip $(TARGET_CPU_ABI_LIST_32_BIT)))
 TARGET_CPU_ABI_LIST_64_BIT := $(subst $(space),$(comma),$(strip $(TARGET_CPU_ABI_LIST_64_BIT)))
 
-ifneq ($(BUILD_BROKEN_ANDROIDMK_EXPORTS),true)
-$(KATI_obsolete_export It is a global setting. See $(CHANGES_URL)#export_keyword)
-endif
+#ifneq ($(BUILD_BROKEN_ANDROIDMK_EXPORTS),true)
+#$(KATI_obsolete_export It is a global setting. See $(CHANGES_URL)#export_keyword)
+#endif
 
 ###########################################
 # Now we can substitute with the real value of TARGET_COPY_OUT_RAMDISK
@@ -436,9 +436,9 @@ endif
 ###########################################
 # Now we can substitute with the real value of TARGET_COPY_OUT_ODM
 ifeq ($(TARGET_COPY_OUT_ODM),$(_odm_path_placeholder))
-  TARGET_COPY_OUT_ODM := $(TARGET_COPY_OUT_VENDOR)/odm
-else ifeq ($(filter odm system/vendor/odm vendor/odm,$(TARGET_COPY_OUT_ODM)),)
-  $(error TARGET_COPY_OUT_ODM must be either 'odm', 'system/vendor/odm' or 'vendor/odm', seeing '$(TARGET_COPY_OUT_ODM)'.)
+  TARGET_COPY_OUT_ODM := vendor/odm
+else ifeq ($(filter odm vendor/odm,$(TARGET_COPY_OUT_ODM)),)
+  $(error TARGET_COPY_OUT_ODM must be either 'odm' or 'vendor/odm', seeing '$(TARGET_COPY_OUT_ODM)'.)
 endif
 PRODUCT_COPY_FILES := $(subst $(_odm_path_placeholder),$(TARGET_COPY_OUT_ODM),$(PRODUCT_COPY_FILES))
 

@@ -177,6 +177,10 @@ else
   endif
 endif
 
+#
+# -----------------------------------------------------------------
+# Add AospExtended generic properties to the build properties.
+ADDITIONAL_BUILD_PROPERTIES += $(PRODUCT_GENERIC_PROPERTIES)
 
 # Bring in standard build system definitions.
 include $(BUILD_SYSTEM)/definitions.mk
@@ -218,7 +222,17 @@ TARGET_BUILD_JAVA_SUPPORT_LEVEL := platform
 # The pdk (Platform Development Kit) build
 include build/make/core/pdk_config.mk
 
+#
 # -----------------------------------------------------------------
+# Enable dynamic linker warnings for userdebug, eng and non-REL builds
+ifneq ($(TARGET_BUILD_VARIANT),user)
+  ADDITIONAL_BUILD_PROPERTIES += ro.bionic.ld.warning=1
+else
+# Enable it for user builds as long as they are not final.
+ifneq ($(PLATFORM_VERSION_CODENAME),REL)
+  ADDITIONAL_BUILD_PROPERTIES += ro.bionic.ld.warning=1
+endif
+endif
 
 ADDITIONAL_BUILD_PROPERTIES += ro.treble.enabled=${PRODUCT_FULL_TREBLE}
 
@@ -361,10 +375,6 @@ endif
 BUILD_WITHOUT_PV := true
 
 ADDITIONAL_BUILD_PROPERTIES += net.bt.name=Android
-
-# ------------------------------------------------------------
-# Include vendor specific additions to build properties
--include vendor/lineage/build/core/main.mk
 
 # ------------------------------------------------------------
 # Define a function that, given a list of module tags, returns

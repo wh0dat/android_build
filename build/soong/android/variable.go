@@ -20,7 +20,7 @@ import (
 	"runtime"
 	"strings"
 
-	"lineage/soong/android"
+	"aosp/soong/android_aosp"
 
 	"github.com/google/blueprint/proptools"
 )
@@ -127,8 +127,8 @@ type variableProperties struct {
 			Srcs         []string
 		}
 
-		// include Lineage variables
-		Lineage android.Product_variables
+		// include Aosp variables
+		Aosp android_aosp.Product_variables
 	} `android:"arch_variant"`
 }
 
@@ -293,8 +293,8 @@ type productVariables struct {
 
 	TargetFSConfigGen []string `json:",omitempty"`
 
-	// include Lineage variables
-	Lineage android.ProductVariables
+	// include Aosp variables
+	Aosp android_aosp.ProductVariables
 }
 
 func boolPtr(v bool) *bool {
@@ -357,6 +357,7 @@ func variableMutator(mctx BottomUpMutatorContext) {
 	valStruct := reflect.ValueOf(mctx.Config().productVariables)
 
 	doVariableMutation(mctx, a, variableValues, zeroValues, valStruct)
+
 }
 
 func doVariableMutation(mctx BottomUpMutatorContext, a *ModuleBase, variableValues reflect.Value, zeroValues reflect.Value,
@@ -369,10 +370,10 @@ func doVariableMutation(mctx BottomUpMutatorContext, a *ModuleBase, variableValu
 
 		// Check that the variable was set for the product
 		val := valStruct.FieldByName(name)
-		if val.IsValid() && val.Kind() == reflect.Struct {
+        if val.IsValid() && val.Kind() == reflect.Struct {
 			doVariableMutation(mctx, a, variableValue, zeroValue, val)
-			continue
-		} else if !val.IsValid() || val.Kind() != reflect.Ptr || val.IsNil() {
+            continue
+        } else if !val.IsValid() || val.Kind() != reflect.Ptr || val.IsNil() {
 			continue
 		}
 

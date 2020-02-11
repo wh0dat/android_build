@@ -249,7 +249,7 @@ METADATA_NAME = 'META-INF/com/android/metadata'
 POSTINSTALL_CONFIG = 'META/postinstall_config.txt'
 DYNAMIC_PARTITION_INFO = 'META/dynamic_partitions_info.txt'
 AB_PARTITIONS = 'META/ab_partitions.txt'
-UNZIP_PATTERN = ['IMAGES/*', 'INSTALL/*', 'META/*', 'RADIO/*', 'SYSTEM/build.prop']
+UNZIP_PATTERN = ['IMAGES/*', 'META/*', 'RADIO/*', 'INSTALL/*', 'SYSTEM/build.prop']
 RETROFIT_DAP_UNZIP_PATTERN = ['OTA/super_*.img', AB_PARTITIONS]
 
 # Images to be excluded from secondary payload. We essentially only keep
@@ -372,7 +372,7 @@ class BuildInfo(object):
   def items(self):
     return self.info_dict.items()
 
-  def GetBuildProp(self, prop):
+  def GetBuildProp(self, prop, raise_error=True):
     """Returns the inquired build property."""
     if prop in BuildInfo._RO_PRODUCT_RESOLVE_PROPS:
       return self._ResolveRoProductBuildProp(prop)
@@ -380,7 +380,10 @@ class BuildInfo(object):
     try:
       return self.info_dict.get("build.prop", {})[prop]
     except KeyError:
-      raise common.ExternalError("couldn't find %s in build.prop" % (prop,))
+      if raise_error:
+        raise common.ExternalError("couldn't find %s in build.prop" % (prop,))
+      else:
+        return "Unknow"
 
   def _ResolveRoProductBuildProp(self, prop):
     """Resolves the inquired ro.product.* build property"""
@@ -965,22 +968,72 @@ else if get_stage("%(bcb_dev)s") == "3/3" then
   # Dump fingerprints
   script.Print("Target: {}".format(target_info.fingerprint))
 
+  #Print ASCII
+  script.Print("**************************************************");
+  script.Print("**              .--.                            **");
+  script.Print("**             : .; :                           **");
+  script.Print("**             :    : .--.  .--. .---.          **");
+  script.Print("**             : :: :' .; :`._-.': .; `         **");
+  script.Print("**             :_;:_;`.__.'`.__.': ._.'         **");
+  script.Print("**                               : :            **");
+  script.Print("**                               :_;            **");
+  script.Print("** .--.        .-.               .-.         .-.**");
+  script.Print("**: .--'      .' `.              : :         : :**");
+  script.Print("**: `;  .-.,-.`. .'.--. ,-.,-. .-' : .--.  .-' :**");
+  script.Print("**: :__ `.  .' : :' '_.': ,. :' .; :' '_.'' .; :**");
+  script.Print("**`.__.':_,._; :_;`.__.':_;:_;`.__.'`.__.'`.__.'**");
+  script.Print("**************************************************");
+  script.Print("*                By:-TeamAEX                     *");
+  script.Print("**************************************************");
+  script.Print(" ")
+  script.AppendExtra("sleep (2);")
   device_specific.FullOTA_InstallBegin()
+
+  if target_info.get("system_root_image") == "true":
+    sys_mount = "/"
+  else:
+    sys_mount = "/system"
 
   CopyInstallTools(output_zip)
   script.UnpackPackageDir("install", "/tmp/install")
   script.SetPermissionsRecursive("/tmp/install", 0, 0, 0755, 0644, None, None)
   script.SetPermissionsRecursive("/tmp/install/bin", 0, 0, 0755, 0755, None, None)
-
-  if target_info.get("system_root_image") == "true":
-    sysmount = "/"
-  else:
-    sysmount = "/system"
+  script.MountSys("check", sys_mount)
 
   if OPTIONS.backuptool:
-    script.RunBackup("backup", sysmount)
+    script.MountSys("backup", sys_mount)
 
   system_progress = 0.75
+
+  if target_info.GetBuildProp("ro.extended.display.version") is not None:
+    buildid = target_info.GetBuildProp("ro.extended.display.version")
+    buildidn = target_info.GetBuildProp("ro.build.id")
+    buildday = target_info.GetBuildProp("ro.build.date")
+    securep = target_info.GetBuildProp("ro.build.version.security_patch")
+    device = target_info.GetBuildProp("ro.aex.device")
+    androidver = target_info.GetBuildProp("ro.build.version.release")
+    manufacturer = target_info.GetBuildProp("ro.product.manufacturer")
+    sdkver = target_info.GetBuildProp("ro.build.version.sdk")
+    script.Print(" **************** Software *****************");
+    script.Print(" OS version: %s"%(buildid));
+    script.Print("");
+    script.Print(" Android version: %s"%(androidver));
+    script.Print("");
+    script.Print(" Security patch: %s"%(securep));
+    script.Print("");
+    script.Print(" SDK version: %s"%(sdkver));
+    script.Print("");
+    script.Print(" Root status: Disabled");
+    script.Print("");
+    script.Print(" Build ID: %s"%(buildidn));
+    script.Print("");
+    script.Print(" Build date: %s"%(buildday));
+    script.Print(" **************** Hardware *****************");
+    script.Print(" Device codename: %s"%(device));
+    script.Print("");
+    script.Print(" Manufacturer: %s"%(manufacturer));
+    script.Print("");
+    script.Print(" *******************************************");
 
   if OPTIONS.wipe_user_data:
     system_progress -= 0.1
@@ -1041,7 +1094,7 @@ else if get_stage("%(bcb_dev)s") == "3/3" then
 
   if OPTIONS.backuptool:
     script.ShowProgress(0.02, 10)
-    script.RunBackup("restore", sysmount)
+    script.MountSys("restore", sys_mount)
 
   script.ShowProgress(0.05, 5)
   script.WriteRawImage("/boot", "boot.img")
@@ -2167,11 +2220,6 @@ def WriteABOTAPackageWithBrilloScript(target_file, output_file,
     secondary_payload.Sign(payload_signer)
     secondary_payload.WriteToZip(output_zip)
 
-  target_zip = zipfile.ZipFile(target_file, "r")
-  common.ZipWriteStr(output_zip, "system/build.prop",
-                     target_zip.read("SYSTEM/build.prop"))
-  common.ZipClose(target_zip)
-
   # If dm-verity is supported for the device, copy contents of care_map
   # into A/B OTA package.
   target_zip = zipfile.ZipFile(target_file, "r")
@@ -2360,9 +2408,6 @@ def main(argv):
   # Load OEM dicts if provided.
   OPTIONS.oem_dicts = _LoadOemDicts(OPTIONS.oem_source)
 
-  if "ota_override_device" in OPTIONS.info_dict:
-    OPTIONS.override_device = OPTIONS.info_dict.get("ota_override_device")
-
   # Assume retrofitting dynamic partitions when base build does not set
   # use_dynamic_partitions but target build does.
   if (OPTIONS.source_info_dict and
@@ -2379,6 +2424,9 @@ def main(argv):
   # Skip postinstall for retrofitting dynamic partitions.
   if OPTIONS.retrofit_dynamic_partitions:
     OPTIONS.skip_postinstall = True
+
+  if "ota_override_device" in OPTIONS.info_dict:
+    OPTIONS.override_device = OPTIONS.info_dict.get("ota_override_device")
 
   ab_update = OPTIONS.info_dict.get("ab_update") == "true"
 

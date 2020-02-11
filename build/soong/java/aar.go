@@ -30,7 +30,7 @@ type AndroidLibraryDependency interface {
 	ExportedProguardFlagFiles() android.Paths
 	ExportedRRODirs() []rroDir
 	ExportedStaticPackages() android.Paths
-	ExportedManifests() android.Paths
+	ExportedManifest() android.Path
 }
 
 func init() {
@@ -69,26 +69,21 @@ type aaptProperties struct {
 
 	// path to AndroidManifest.xml.  If unset, defaults to "AndroidManifest.xml".
 	Manifest *string `android:"path"`
-
-	// paths to additional manifest files to merge with main manifest.
-	Additional_manifests []string `android:"path"`
 }
 
 type aapt struct {
-	aaptSrcJar              android.Path
-	exportPackage           android.Path
-	manifestPath            android.Path
-	transitiveManifestPaths android.Paths
-	proguardOptionsFile     android.Path
-	rroDirs                 []rroDir
-	rTxt                    android.Path
-	extraAaptPackagesFile   android.Path
-	mergedManifestFile      android.Path
-	noticeFile              android.OptionalPath
-	isLibrary               bool
-	uncompressedJNI         bool
-	useEmbeddedDex          bool
-	usesNonSdkApis          bool
+	aaptSrcJar            android.Path
+	exportPackage         android.Path
+	manifestPath          android.Path
+	proguardOptionsFile   android.Path
+	rroDirs               []rroDir
+	rTxt                  android.Path
+	extraAaptPackagesFile android.Path
+	noticeFile            android.OptionalPath
+	isLibrary             bool
+	uncompressedJNI       bool
+	useEmbeddedDex        bool
+	usesNonSdkApis        bool
 
 	splitNames []string
 	splits     []split
@@ -110,8 +105,8 @@ func (a *aapt) ExportedRRODirs() []rroDir {
 	return a.rroDirs
 }
 
-func (a *aapt) ExportedManifests() android.Paths {
-	return a.transitiveManifestPaths
+func (a *aapt) ExportedManifest() android.Path {
+	return a.manifestPath
 }
 
 func (a *aapt) aapt2Flags(ctx android.ModuleContext, sdkContext sdkContext, manifestPath android.Path) (flags []string,
@@ -182,7 +177,7 @@ func (a *aapt) aapt2Flags(ctx android.ModuleContext, sdkContext sdkContext, mani
 
 	if !hasVersionName {
 		var versionName string
-		if ctx.ModuleName() == "framework-res" || ctx.ModuleName() == "org.lineageos.platform-res" {
+		if ctx.ModuleName() == "framework-res" {
 			// Some builds set AppsDefaultVersionName() to include the build number ("O-123456").  aapt2 copies the
 			// version name of framework-res into app manifests as compileSdkVersionCodename, which confuses things
 			// if it contains the build number.  Use the PlatformVersionName instead.
@@ -202,37 +197,17 @@ func (a *aapt) deps(ctx android.BottomUpMutatorContext, sdkContext sdkContext) {
 	if sdkDep.frameworkResModule != "" {
 		ctx.AddVariationDependencies(nil, frameworkResTag, sdkDep.frameworkResModule)
 	}
-	if sdkDep.lineageResModule != "" {
-		ctx.AddDependency(ctx.Module(), lineageResTag, sdkDep.lineageResModule)
-	}
 }
 
 func (a *aapt) buildActions(ctx android.ModuleContext, sdkContext sdkContext, extraLinkFlags ...string) {
-	transitiveStaticLibs, transitiveStaticLibManifests, staticRRODirs, libDeps, libFlags := aaptLibs(ctx, sdkContext)
+	transitiveStaticLibs, staticLibManifests, staticRRODirs, libDeps, libFlags := aaptLibs(ctx, sdkContext)
 
 	// App manifest file
 	manifestFile := proptools.StringDefault(a.aaptProperties.Manifest, "AndroidManifest.xml")
 	manifestSrcPath := android.PathForModuleSrc(ctx, manifestFile)
 
-	manifestPath := manifestFixer(ctx, manifestSrcPath, sdkContext,
-		a.isLibrary, a.uncompressedJNI, a.usesNonSdkApis, a.useEmbeddedDex)
-
-	// Add additional manifest files to transitive manifests.
-	additionalManifests := android.PathsForModuleSrc(ctx, a.aaptProperties.Additional_manifests)
-	a.transitiveManifestPaths = append(android.Paths{manifestPath}, additionalManifests...)
-	a.transitiveManifestPaths = append(a.transitiveManifestPaths, transitiveStaticLibManifests...)
-
-	if len(a.transitiveManifestPaths) > 1 {
-		a.mergedManifestFile = manifestMerger(ctx, a.transitiveManifestPaths[0], a.transitiveManifestPaths[1:], a.isLibrary)
-		if !a.isLibrary {
-			// Only use the merged manifest for applications.  For libraries, the transitive closure of manifests
-			// will be propagated to the final application and merged there.  The merged manifest for libraries is
-			// only passed to Make, which can't handle transitive dependencies.
-			manifestPath = a.mergedManifestFile
-		}
-	} else {
-		a.mergedManifestFile = manifestPath
-	}
+	manifestPath := manifestMerger(ctx, manifestSrcPath, sdkContext, staticLibManifests, a.isLibrary,
+		a.uncompressedJNI, a.useEmbeddedDex, a.usesNonSdkApis)
 
 	linkFlags, linkDeps, resDirs, overlayDirs, rroDirs, resZips := a.aapt2Flags(ctx, sdkContext, manifestPath)
 
@@ -319,7 +294,7 @@ func (a *aapt) buildActions(ctx android.ModuleContext, sdkContext sdkContext, ex
 }
 
 // aaptLibs collects libraries from dependencies and sdk_version and converts them into paths
-func aaptLibs(ctx android.ModuleContext, sdkContext sdkContext) (transitiveStaticLibs, transitiveStaticLibManifests android.Paths,
+func aaptLibs(ctx android.ModuleContext, sdkContext sdkContext) (transitiveStaticLibs, staticLibManifests android.Paths,
 	staticRRODirs []rroDir, deps android.Paths, flags []string) {
 
 	var sharedLibs android.Paths
@@ -339,7 +314,7 @@ func aaptLibs(ctx android.ModuleContext, sdkContext sdkContext) (transitiveStati
 		switch ctx.OtherModuleDependencyTag(module) {
 		case instrumentationForTag:
 			// Nothing, instrumentationForTag is treated as libTag for javac but not for aapt2.
-		case libTag, frameworkResTag, lineageResTag:
+		case libTag, frameworkResTag:
 			if exportPackage != nil {
 				sharedLibs = append(sharedLibs, exportPackage)
 			}
@@ -347,7 +322,7 @@ func aaptLibs(ctx android.ModuleContext, sdkContext sdkContext) (transitiveStati
 			if exportPackage != nil {
 				transitiveStaticLibs = append(transitiveStaticLibs, aarDep.ExportedStaticPackages()...)
 				transitiveStaticLibs = append(transitiveStaticLibs, exportPackage)
-				transitiveStaticLibManifests = append(transitiveStaticLibManifests, aarDep.ExportedManifests()...)
+				staticLibManifests = append(staticLibManifests, aarDep.ExportedManifest())
 
 			outer:
 				for _, d := range aarDep.ExportedRRODirs() {
@@ -374,9 +349,8 @@ func aaptLibs(ctx android.ModuleContext, sdkContext sdkContext) (transitiveStati
 	}
 
 	transitiveStaticLibs = android.FirstUniquePaths(transitiveStaticLibs)
-	transitiveStaticLibManifests = android.FirstUniquePaths(transitiveStaticLibManifests)
 
-	return transitiveStaticLibs, transitiveStaticLibManifests, staticRRODirs, deps, flags
+	return transitiveStaticLibs, staticLibManifests, staticRRODirs, deps, flags
 }
 
 type AndroidLibrary struct {
@@ -532,8 +506,8 @@ func (a *AARImport) ExportedStaticPackages() android.Paths {
 	return a.exportedStaticPackages
 }
 
-func (a *AARImport) ExportedManifests() android.Paths {
-	return android.Paths{a.manifest}
+func (a *AARImport) ExportedManifest() android.Path {
+	return a.manifest
 }
 
 func (a *AARImport) Prebuilt() *android.Prebuilt {
@@ -549,9 +523,6 @@ func (a *AARImport) DepsMutator(ctx android.BottomUpMutatorContext) {
 		sdkDep := decodeSdkDep(ctx, sdkContext(a))
 		if sdkDep.useModule && sdkDep.frameworkResModule != "" {
 			ctx.AddVariationDependencies(nil, frameworkResTag, sdkDep.frameworkResModule)
-		}
-		if sdkDep.useModule && sdkDep.lineageResModule != "" {
-			ctx.AddDependency(ctx.Module(), lineageResTag, sdkDep.lineageResModule)
 		}
 	}
 

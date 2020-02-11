@@ -16,6 +16,7 @@ package build
 
 import (
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -49,9 +50,6 @@ type configImpl struct {
 	katiSuffix      string
 	targetDevice    string
 	targetDeviceDir string
-
-	// Autodetected
-	totalRAM uint64
 
 	pdkBuild bool
 
@@ -100,13 +98,15 @@ func NewConfig(ctx Context, args ...string) Config {
 	ret.parallel = runtime.NumCPU() + 2
 	ret.keepGoing = 1
 
-	ret.totalRAM = detectTotalRAM(ctx)
-
 	ret.parseArgs(ctx, args)
 
 	// Make sure OUT_DIR is set appropriately
 	if outDir, ok := ret.environ.Get("OUT_DIR"); ok {
-		ret.environ.Set("OUT_DIR", filepath.Clean(outDir))
+		outDir := filepath.Clean(outDir)
+		if (!filepath.IsAbs(outDir)) {
+			outDir = filepath.Join(os.Getenv("TOP"), outDir)
+		}
+		ret.environ.Set("OUT_DIR", outDir)
 	} else {
 		outDir := "out"
 		if baseDir, ok := ret.environ.Get("OUT_DIR_COMMON_BASE"); ok {
@@ -115,6 +115,8 @@ func NewConfig(ctx Context, args ...string) Config {
 			} else {
 				outDir = filepath.Join(baseDir, filepath.Base(wd))
 			}
+		} else {
+			outDir = filepath.Join(os.Getenv("TOP"), outDir)
 		}
 		ret.environ.Set("OUT_DIR", outDir)
 	}
@@ -189,27 +191,27 @@ func NewConfig(ctx Context, args ...string) Config {
 	checkTopDir(ctx)
 
 	if srcDir := absPath(ctx, "."); strings.ContainsRune(srcDir, ' ') {
-		ctx.Println("You are building in a directory whose absolute path contains a space character:")
-		ctx.Println()
-		ctx.Printf("%q\n", srcDir)
-		ctx.Println()
-		ctx.Fatalln("Directory names containing spaces are not supported")
+		log.Println("You are building in a directory whose absolute path contains a space character:")
+		log.Println()
+		log.Printf("%q\n", srcDir)
+		log.Println()
+		log.Fatalln("Directory names containing spaces are not supported")
 	}
 
 	if outDir := ret.OutDir(); strings.ContainsRune(outDir, ' ') {
-		ctx.Println("The absolute path of your output directory ($OUT_DIR) contains a space character:")
-		ctx.Println()
-		ctx.Printf("%q\n", outDir)
-		ctx.Println()
-		ctx.Fatalln("Directory names containing spaces are not supported")
+		log.Println("The absolute path of your output directory ($OUT_DIR) contains a space character:")
+		log.Println()
+		log.Printf("%q\n", outDir)
+		log.Println()
+		log.Fatalln("Directory names containing spaces are not supported")
 	}
 
 	if distDir := ret.DistDir(); strings.ContainsRune(distDir, ' ') {
-		ctx.Println("The absolute path of your dist directory ($DIST_DIR) contains a space character:")
-		ctx.Println()
-		ctx.Printf("%q\n", distDir)
-		ctx.Println()
-		ctx.Fatalln("Directory names containing spaces are not supported")
+		log.Println("The absolute path of your dist directory ($DIST_DIR) contains a space character:")
+		log.Println()
+		log.Printf("%q\n", distDir)
+		log.Println()
+		log.Fatalln("Directory names containing spaces are not supported")
 	}
 
 	// Configure Java-related variables, including adding it to $PATH
@@ -712,10 +714,6 @@ func (c *configImpl) KatiArgs() []string {
 
 func (c *configImpl) Parallel() int {
 	return c.parallel
-}
-
-func (c *configImpl) TotalRAM() uint64 {
-	return c.totalRAM
 }
 
 func (c *configImpl) UseGoma() bool {

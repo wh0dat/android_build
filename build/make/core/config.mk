@@ -95,7 +95,7 @@ $(KATI_obsolete_var TARGET_ANDROID_FILESYSTEM_CONFIG_H,Use TARGET_FS_CONFIG_GEN 
 $(KATI_deprecated_var USER,Use BUILD_USERNAME instead. See $(CHANGES_URL)#USER)
 
 # This is marked as obsolete in envsetup.mk after reading the BoardConfig.mk
-$(KATI_deprecate_export It is a global setting. See $(CHANGES_URL)#export_keyword)
+#$(KATI_deprecate_export It is a global setting. See $(CHANGES_URL)#export_keyword)
 
 # Used to force goals to build.  Only use for conditionally defined goals.
 .PHONY: FORCE
@@ -233,9 +233,14 @@ include $(BUILD_SYSTEM)/envsetup.mk
 # See envsetup.mk for a description of SCAN_EXCLUDE_DIRS
 FIND_LEAVES_EXCLUDES := $(addprefix --prune=, $(SCAN_EXCLUDE_DIRS) .repo .git)
 
+# General entries for project pathmap.  Any entries listed here should
+# be device and hardware independent.
+$(call project-set-path-variant,ril,TARGET_RIL_VARIANT,hardware/ril)
+
 -include vendor/extra/BoardConfigExtra.mk
-ifneq ($(LINEAGE_BUILD),)
-include vendor/lineage/config/BoardConfigLineage.mk
+
+ifneq ($(CUSTOM_BUILD),)
+include vendor/aosp/config/BoardConfigAosp.mk
 endif
 
 # The build system exposes several variables for where to find the kernel
@@ -1177,15 +1182,28 @@ endif
 DEFAULT_DATA_OUT_MODULES := ltp $(ltp_packages) $(kselftest_modules)
 .KATI_READONLY := DEFAULT_DATA_OUT_MODULES
 
-ifneq ($(LINEAGE_BUILD),)
-ifneq ($(wildcard device/lineage/sepolicy/common/sepolicy.mk),)
+ifneq ($(CUSTOM_BUILD),)
 ## We need to be sure the global selinux policies are included
 ## last, to avoid accidental resetting by device configs
-$(eval include device/lineage/sepolicy/common/sepolicy.mk)
-endif
-endif
+$(eval include device/aosp/sepolicy/common/sepolicy.mk)
 
 # Include any vendor specific config.mk file
 -include vendor/*/build/core/config.mk
 
+# Include any vendor specific apicheck.mk file
+-include vendor/*/build/core/apicheck.mk
+
+# We modify several neverallows, so let the build proceed
+ifneq ($(TARGET_BUILD_VARIANT),user)
+SELINUX_IGNORE_NEVERALLOWS := true
+endif
+
+# Rules for QCOM targets
+-include vendor/*/build/core/qcom_target.mk
+
+# Rules for MTK targets
+-include vendor/*/build/core/mtk_target.mk
+endif
+
 include $(BUILD_SYSTEM)/dumpvar.mk
+

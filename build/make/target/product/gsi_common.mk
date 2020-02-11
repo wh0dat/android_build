@@ -21,24 +21,27 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/handheld_product.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/telephony_product.mk)
 
 # Default AOSP sounds
-ifeq ($(LINEAGE_BUILD),)
-$(call inherit-product-if-exists, frameworks/base/data/sounds/AllAudio.mk)
-else
-$(call inherit-product-if-exists, frameworks/base/data/sounds/AudioPackage14.mk)
-endif
+$(call inherit-product-if-exists, frameworks/base/data/sounds/GoogleAudio.mk)
 
 # GSI doesn't support apex for now.
 # Properties set in product take precedence over those in vendor.
 PRODUCT_PRODUCT_PROPERTIES += \
     ro.apex.updatable=false
 
-ifeq ($(LINEAGE_BUILD),)
+# GSI doesn't support apex for now.
+# Properties set in product take precedence over those in vendor.
+PRODUCT_PRODUCT_PROPERTIES += \
+    ro.apex.updatable=false
+
+# GSI doesn't support apex for now.
+# Properties set in product take precedence over those in vendor.
+PRODUCT_PRODUCT_PROPERTIES += \
+    ro.apex.updatable=false
+
 # Additional settings used in all AOSP builds
 PRODUCT_PRODUCT_PROPERTIES += \
-    ro.config.ringtone=Ring_Synth_04.ogg \
-    ro.config.notification_sound=pixiedust.ogg \
-
-endif
+    ro.config.ringtone=The_big_adventure.ogg \
+    ro.config.notification_sound=Popcorn.ogg \
 
 # The mainline checking whitelist, should be clean up
 PRODUCT_ARTIFACT_PATH_REQUIREMENT_WHITELIST += \
@@ -94,7 +97,7 @@ PRODUCT_PACKAGES += \
 
 # Telephony:
 #   Provide a APN configuration to GSI product
-ifeq ($(LINEAGE_BUILD),)
+ifeq ($(CUSTOM_BUILD),)
 PRODUCT_COPY_FILES += \
     device/sample/etc/apns-full-conf.xml:$(TARGET_COPY_OUT_PRODUCT)/etc/apns-conf.xml
 endif
@@ -102,4 +105,4 @@ endif
 # NFC:
 #   Provide a libnfc-nci.conf to GSI product
 PRODUCT_COPY_FILES += \
-    device/generic/common/nfc/libnfc-nci.conf:$(TARGET_COPY_OUT_PRODUCT)/etc/libnfc-nci.conf
+    build/make/target/product/nfc/libnfc-nci.conf:$(TARGET_COPY_OUT_PRODUCT)/etc/libnfc-nci.conf

@@ -37,7 +37,18 @@ import (
 	"android/soong/zip"
 )
 
-var numJobs = flag.Int("j", 0, "number of parallel jobs [0=autodetect]")
+// We default to number of cpus / 4, which seems to be the sweet spot for my
+// system. I suspect this is mostly due to memory or disk bandwidth though, and
+// may depend on the size ofthe source tree, so this probably isn't a great
+// default.
+func detectNumJobs() int {
+	if runtime.NumCPU() < 4 {
+		return 1
+	}
+	return runtime.NumCPU() / 4
+}
+
+var numJobs = flag.Int("j", detectNumJobs(), "number of parallel kati jobs")
 
 var keepArtifacts = flag.Bool("keep", false, "keep archives of artifacts")
 var incremental = flag.Bool("incremental", false, "run in incremental mode (saving intermediates)")
@@ -147,7 +158,7 @@ type mpContext struct {
 func main() {
 	stdio := terminal.StdioImpl{}
 
-	output := terminal.NewStatusOutput(stdio.Stdout(), "", false,
+	output := terminal.NewStatusOutput(stdio.Stdout(), "",
 		build.OsEnvironment().IsEnvTrue("ANDROID_QUIET_BUILD"))
 
 	log := logger.New(output)
@@ -218,21 +229,6 @@ func main() {
 		log.SetOutput(filepath.Join(config.OutDir(), "soong.log"))
 		trace.SetOutput(filepath.Join(config.OutDir(), "build.trace"))
 	}
-
-	var jobs = *numJobs
-	if jobs < 1 {
-		jobs = runtime.NumCPU() / 4
-
-		ramGb := int(config.TotalRAM() / 1024 / 1024 / 1024)
-		if ramJobs := ramGb / 20; ramGb > 0 && jobs > ramJobs {
-			jobs = ramJobs
-		}
-
-		if jobs < 1 {
-			jobs = 1
-		}
-	}
-	log.Verbosef("Using %d parallel jobs", jobs)
 
 	setMaxFiles(log)
 
@@ -308,7 +304,7 @@ func main() {
 	}()
 
 	var wg sync.WaitGroup
-	for i := 0; i < jobs; i++ {
+	for i := 0; i < *numJobs; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -395,7 +391,7 @@ func buildProduct(mpctx *mpContext, product string) {
 		Thread:  mpctx.Tracer.NewThread(product),
 		Status:  &status.Status{},
 	}}
-	ctx.Status.AddOutput(terminal.NewStatusOutput(ctx.Writer, "", false,
+	ctx.Status.AddOutput(terminal.NewStatusOutput(ctx.Writer, "",
 		build.OsEnvironment().IsEnvTrue("ANDROID_QUIET_BUILD")))
 
 	config := build.NewConfig(ctx, flag.Args()...)

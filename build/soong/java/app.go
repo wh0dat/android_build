@@ -197,14 +197,13 @@ func (a *AndroidApp) shouldUncompressDex(ctx android.ModuleContext) bool {
 		return true
 	}
 
-	// Uncompress dex in APKs of privileged apps (even for unbundled builds, they may
-	// be preinstalled as prebuilts).
-	if ctx.Config().UncompressPrivAppDex() && Bool(a.appProperties.Privileged) {
-		return true
-	}
-
 	if ctx.Config().UnbundledBuild() {
 		return false
+	}
+
+	// Uncompress dex in APKs of privileged apps
+	if ctx.Config().UncompressPrivAppDex() && Bool(a.appProperties.Privileged) {
+		return true
 	}
 
 	return shouldUncompressDex(ctx, &a.dexpreopter)
@@ -288,7 +287,7 @@ func (a *AndroidApp) dexBuildActions(ctx android.ModuleContext) android.Path {
 	a.dexpreopter.uncompressedDex = a.shouldUncompressDex(ctx)
 	a.deviceProperties.UncompressDex = a.dexpreopter.uncompressedDex
 
-	if ctx.ModuleName() != "framework-res" && ctx.ModuleName() != "org.lineageos.platform-res" {
+	if ctx.ModuleName() != "framework-res" {
 		a.Module.compile(ctx, a.aaptSrcJar)
 	}
 
@@ -402,9 +401,6 @@ func (a *AndroidApp) generateAndroidBuildActions(ctx android.ModuleContext) {
 
 	if ctx.ModuleName() == "framework-res" {
 		// framework-res.apk is installed as system/framework/framework-res.apk
-		a.installDir = android.PathForModuleInstall(ctx, "framework")
-	} else if ctx.ModuleName() == "org.lineageos.platform-res" {
-		// org.lineageos.platform-res.apk needs to be in system/framework
 		a.installDir = android.PathForModuleInstall(ctx, "framework")
 	} else if Bool(a.appProperties.Privileged) {
 		a.installDir = android.PathForModuleInstall(ctx, "priv-app", a.installApkName)

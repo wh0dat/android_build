@@ -271,7 +271,7 @@ func (app *AndroidApp) AndroidMk() android.AndroidMkData {
 					fmt.Fprintln(w, "LOCAL_SOONG_PROGUARD_DICT :=", app.proguardDictionary.String())
 				}
 
-				if app.Name() == "framework-res" || app.Name() == "org.lineageos.platform-res" {
+				if app.Name() == "framework-res" {
 					fmt.Fprintln(w, "LOCAL_MODULE_PATH := $(TARGET_OUT_JAVA_LIBRARIES)")
 					// Make base_rules.mk not put framework-res in a subdirectory called
 					// framework_res.
@@ -373,7 +373,7 @@ func (a *AndroidLibrary) AndroidMk() android.AndroidMkData {
 			fmt.Fprintln(w, "LOCAL_SOONG_PROGUARD_DICT :=", a.proguardDictionary.String())
 		}
 
-		if a.Name() == "framework-res" || a.Name() == "org.lineageos.platform-res" {
+		if a.Name() == "framework-res" {
 			fmt.Fprintln(w, "LOCAL_MODULE_PATH := $(TARGET_OUT_JAVA_LIBRARIES)")
 			// Make base_rules.mk not put framework-res in a subdirectory called
 			// framework_res.
@@ -382,7 +382,7 @@ func (a *AndroidLibrary) AndroidMk() android.AndroidMkData {
 
 		fmt.Fprintln(w, "LOCAL_SOONG_RESOURCE_EXPORT_PACKAGE :=", a.exportPackage.String())
 		fmt.Fprintln(w, "LOCAL_SOONG_STATIC_LIBRARY_EXTRA_PACKAGES :=", a.extraAaptPackagesFile.String())
-		fmt.Fprintln(w, "LOCAL_FULL_MANIFEST_FILE :=", a.mergedManifestFile.String())
+		fmt.Fprintln(w, "LOCAL_FULL_MANIFEST_FILE :=", a.manifestPath.String())
 		fmt.Fprintln(w, "LOCAL_SOONG_EXPORT_PROGUARD_FLAGS :=",
 			strings.Join(a.exportedProguardFlagFiles.Strings(), " "))
 		fmt.Fprintln(w, "LOCAL_UNINSTALLABLE_MODULE := true")

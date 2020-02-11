@@ -29,7 +29,6 @@ PRODUCT_PACKAGES += \
     drmserver \
     ethernet-service \
     fsck.f2fs \
-    HTMLViewer \
     libfilterpack_imageproc \
     libwebviewchromium_loader \
     libwebviewchromium_plat_support \
@@ -51,7 +50,6 @@ endif
 
 # The order here is the same order they end up on the classpath, so it matters.
 PRODUCT_SYSTEM_SERVER_JARS := \
-    org.lineageos.platform \
     services \
     ethernet-service \
     wifi-service \

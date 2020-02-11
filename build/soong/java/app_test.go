@@ -87,11 +87,8 @@ func TestApp(t *testing.T) {
 			expectedLinkImplicits = append(expectedLinkImplicits, manifestFixer.Output.String())
 
 			frameworkRes := ctx.ModuleForTests("framework-res", "android_common")
-			lineageRes := ctx.ModuleForTests("org.lineageos.platform-res", "android_common")
 			expectedLinkImplicits = append(expectedLinkImplicits,
 				frameworkRes.Output("package-res.apk").Output.String())
-			expectedLinkImplicits = append(expectedLinkImplicits,
-				lineageRes.Output("package-res.apk").Output.String())
 
 			// Test the mapping from input files to compiled output file names
 			compile := foo.Output(compiledResourceFiles[0])
@@ -722,7 +719,7 @@ func TestCertificates(t *testing.T) {
 				}
 			`,
 			certificateOverride: "",
-			expected:            "build/make/target/product/security/testkey.x509.pem build/make/target/product/security/testkey.pk8",
+			expected:            "build/target/product/security/testkey.x509.pem build/target/product/security/testkey.pk8",
 		},
 		{
 			name: "module certificate property",
@@ -751,7 +748,7 @@ func TestCertificates(t *testing.T) {
 				}
 			`,
 			certificateOverride: "",
-			expected:            "build/make/target/product/security/expiredkey.x509.pem build/make/target/product/security/expiredkey.pk8",
+			expected:            "build/target/product/security/expiredkey.x509.pem build/target/product/security/expiredkey.pk8",
 		},
 		{
 			name: "certificate overrides",
@@ -920,7 +917,7 @@ func TestOverrideAndroidApp(t *testing.T) {
 		{
 			variantName: "android_common",
 			apkPath:     "/target/product/test_device/system/app/foo/foo.apk",
-			signFlag:    "build/make/target/product/security/expiredkey.x509.pem build/make/target/product/security/expiredkey.pk8",
+			signFlag:    "build/target/product/security/expiredkey.x509.pem build/target/product/security/expiredkey.pk8",
 			overrides:   []string{"baz"},
 			aaptFlag:    "",
 		},
@@ -934,7 +931,7 @@ func TestOverrideAndroidApp(t *testing.T) {
 		{
 			variantName: "baz_android_common",
 			apkPath:     "/target/product/test_device/system/app/baz/baz.apk",
-			signFlag:    "build/make/target/product/security/expiredkey.x509.pem build/make/target/product/security/expiredkey.pk8",
+			signFlag:    "build/target/product/security/expiredkey.x509.pem build/target/product/security/expiredkey.pk8",
 			overrides:   []string{"baz", "foo"},
 			aaptFlag:    "--rename-manifest-package org.dandroid.bp",
 		},
@@ -1182,7 +1179,7 @@ func TestAndroidAppImport(t *testing.T) {
 	// Check cert signing flag.
 	signedApk := variant.Output("signed/foo.apk")
 	signingFlag := signedApk.Args["certificates"]
-	expected := "build/make/target/product/security/platform.x509.pem build/make/target/product/security/platform.pk8"
+	expected := "build/target/product/security/platform.x509.pem build/target/product/security/platform.pk8"
 	if expected != signingFlag {
 		t.Errorf("Incorrect signing flags, expected: %q, got: %q", expected, signingFlag)
 	}
@@ -1266,7 +1263,7 @@ func TestAndroidAppImport_DefaultDevCert(t *testing.T) {
 	// Check cert signing flag.
 	signedApk := variant.Output("signed/foo.apk")
 	signingFlag := signedApk.Args["certificates"]
-	expected := "build/make/target/product/security/testkey.x509.pem build/make/target/product/security/testkey.pk8"
+	expected := "build/target/product/security/testkey.x509.pem build/target/product/security/testkey.pk8"
 	if expected != signingFlag {
 		t.Errorf("Incorrect signing flags, expected: %q, got: %q", expected, signingFlag)
 	}
